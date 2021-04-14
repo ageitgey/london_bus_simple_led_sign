@@ -1,6 +1,5 @@
 import requests
 import requests.exceptions
-from pathlib import Path
 from json import JSONDecodeError
 import logging
 from time import sleep
@@ -13,6 +12,7 @@ logging.basicConfig(
 STOPS = [
     "490006220N",
     "490006220S",
+    "490000248G",
 ]
 
 
@@ -34,6 +34,7 @@ def get_bus_data(stop_number):
         destination_name = row['destinationName']
         towards = row['towards']
 
+
         arrivals.append([line_name, station_name, destination_name, towards, expected_arrival.strftime("%H:%M%p"), time_to_arrival])
 
     arrivals.sort(key=lambda x: x[5])
@@ -41,20 +42,31 @@ def get_bus_data(stop_number):
     return arrivals
 
 
-def format_arrival(data):
-    bus_info = data[0]
+def format_arrival(i, bus_info):
     line_name, station_name, destination_name, towards, arrival_time, time_to_arrival = bus_info
-    return f"{line_name} to {destination_name} via {towards} - {time_to_arrival}m"
+
+    if  time_to_arrival > 1:
+        arrival_remaining = f"{time_to_arrival}m".rjust(3)
+    else:
+        arrival_remaining = f"due".rjust(3)
+
+    destination_name = towards[0:8]
+    return f"{line_name.rjust(3)} {destination_name.ljust(8)} {arrival_remaining}"
+
+# 16 x 2
 
 if __name__ == "__main__":
-    bus_stop = "490006220S"
-
-
     while True:
         try:
+            all_busses = []
             for bus_stop in STOPS:
-                data = get_bus_data(bus_stop)
-                print(format_arrival(data))
+                arrivals = get_bus_data(bus_stop)
+                if len(arrivals) > 0:
+                    all_busses.append(arrivals[0])
+                if len(arrivals) > 1:
+                    all_busses.append(arrivals[1])
+            for i, arrival in enumerate(all_busses):
+                print(format_arrival(i + 1, arrival))
         except requests.exceptions.ConnectionError:
             logging.exception("Error connecting to API")
         except TimeoutError:
@@ -64,4 +76,4 @@ if __name__ == "__main__":
         except JSONDecodeError:
             logging.exception("Bad data returned by API")
 
-        sleep(120)
+        sleep(60)
